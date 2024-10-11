@@ -1,77 +1,19 @@
 from experta import *
 
 class Greetings(KnowledgeEngine):
-
-    def __init__(self, symptom_map, if_not_matched, get_treatments, get_details):
+    def __init__(self, symptom_map, if_not_matched, get_treatments, get_details, symptoms):
         self.symptom_map = symptom_map
         self.if_not_matched = if_not_matched
         self.get_details = get_details
         self.get_treatments = get_treatments
+        self.symptoms = symptoms
         KnowledgeEngine.__init__(self)
 
-    #code giving instructions on how to use the Expert System
     @DefFacts()
     def _initial_action(self):
-        print("")
-        print("This is a knowledge based bot to diagnose diseases")
-        print("")
-        print("Do you feel any of the following symptoms?")
-        print("Reply high or low or no")
-        print("")
         yield Fact(action="find_disease")
-
-    #taking various input from user
-    @Rule(Fact(action="find_disease"), NOT(Fact(headache=W())), salience=4)
-    def symptom_0(self):
-        self.declare(Fact(headache=input("headache: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(back_pain=W())), salience=1)
-    def symptom_1(self):
-        self.declare(Fact(back_pain=input("back pain: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(chest_pain=W())), salience=1)
-    def symptom_2(self):
-        self.declare(Fact(chest_pain=input("chest pain: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(cough=W())), salience=3)
-    def symptom_3(self):
-        self.declare(Fact(cough=input("cough: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(fainting=W())), salience=1)
-    def symptom_4(self):
-        self.declare(Fact(fainting=input("fainting: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(fatigue=W())), salience=1)
-    def symptom_5(self):
-        self.declare(Fact(fatigue=input("fatigue: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(sunken_eyes=W())), salience=1)
-    def symptom_6(self):
-        self.declare(Fact(sunken_eyes=input("sunken eyes: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(low_body_temp=W())), salience=1)
-    def symptom_7(self):
-        self.declare(Fact(low_body_temp=input("low body temperature: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(restlessness=W())), salience=1)
-    def symptom_8(self):
-        self.declare(Fact(restlessness=input("restlessness: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(sore_throat=W())), salience=1)
-    def symptom_9(self):
-        self.declare(Fact(sore_throat=input("sore throat: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(fever=W())), salience=1)
-    def symptom_10(self):
-        self.declare(Fact(fever=input("fever: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(nausea=W())), salience=1)
-    def symptom_11(self):
-        self.declare(Fact(nausea=input("nausea: ")))
-
-    @Rule(Fact(action="find_disease"), NOT(Fact(blurred_vision=W())), salience=1)
-    def symptom_12(self):
-        self.declare(Fact(blurred_vision=input("blurred_vision: ")))
+        for symptom, value in self.symptoms.items():
+            yield Fact(**{symptom: value})
 
     #different rules checking for each disease match
     @Rule(
@@ -343,7 +285,6 @@ class Greetings(KnowledgeEngine):
     #when the user's input doesn't match any disease in the knowledge base
     @Rule(Fact(action="find_disease"), Fact(disease=MATCH.disease), salience=-998)
     def disease(self, disease):
-        print("")
         id_disease = disease
         disease_details = self.get_details(id_disease)
         treatments = self.get_treatments(id_disease)
@@ -374,48 +315,15 @@ class Greetings(KnowledgeEngine):
         NOT(Fact(disease=MATCH.disease)),
         salience=-999
     )
-    def not_matched(
-        self,
-        headache,
-        back_pain,
-        chest_pain,
-        cough,
-        fainting,
-        sore_throat,
-        fatigue,
-        restlessness,
-        low_body_temp,
-        fever,
-        sunken_eyes,
-        nausea,
-        blurred_vision,
-    ):
+    def not_matched(self, headache, back_pain, chest_pain, cough, fainting, sore_throat, fatigue, low_body_temp, restlessness, fever, sunken_eyes, nausea, blurred_vision):
         print("\nThe bot did not find any diseases that match your exact symptoms.")
-        lis = [
-            headache,
-            back_pain,
-            chest_pain,
-            cough,
-            fainting,
-            sore_throat,
-            fatigue,
-            restlessness,
-            low_body_temp,
-            fever,
-            sunken_eyes,
-            nausea,
-            blurred_vision,
-        ]
+        lis = [headache, back_pain, chest_pain, cough, fainting, sore_throat, fatigue, low_body_temp, restlessness, fever, sunken_eyes, nausea, blurred_vision]
         max_count = 0
         max_disease = ""
         for key, val in self.symptom_map.items():
-            count = 0
-            temp_list = eval(key)
-            for j in range(0, len(lis)):
-                if temp_list[j] == lis[j] and (lis[j] == "high" or lis[j] == "low" or lis[j] == "yes"):
-                    count = count + 1
+            count = sum(1 for i, j in zip(eval(key), lis) if i == j and j != "no")
             if count > max_count:
                 max_count = count
                 max_disease = val
-        if max_disease != "":
+        if max_disease:
             self.if_not_matched(max_disease)
