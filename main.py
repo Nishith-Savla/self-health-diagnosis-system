@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from greetings import Greetings
 from experta import Fact
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
 
 diseases_list = []
 diseases_symptoms = []
@@ -66,6 +69,38 @@ def if_not_matched(disease):
         "The common medications and procedures suggested by other real doctors are: \n"
     )
     print(treatments + "\n")
+
+
+class GeminiChat:
+    def __init__(self):
+        load_dotenv()
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        self.model = genai.GenerativeModel("gemini-pro")
+        self.chat = self.model.start_chat(history=[])
+
+    def get_response(self, symptoms_text):
+        prompt = f"""As a medical expert, analyze this symptom description and suggest possible conditions:
+        
+        Patient's description:
+        {symptoms_text}
+        
+        Please format your response as follows:
+        Possible Conditions:
+        1. [Condition] - [Brief explanation of why this condition matches the symptoms]
+        2. [Condition] - [Brief explanation of why this condition matches the symptoms]
+        
+        General Advice:
+        - [Specific advice based on described symptoms]
+        - [General health recommendations]
+        
+        Additional Questions to Consider:
+        - [Important follow-up question 1]
+        - [Important follow-up question 2]
+        
+        Disclaimer: This is not a substitute for professional medical advice. Please consult a healthcare provider for proper diagnosis and treatment."""
+
+        response = self.chat.send_message(prompt)
+        return response.text
 
 
 class DiagnosisGUI:
@@ -152,6 +187,39 @@ class DiagnosisGUI:
         )
         self.result_text.pack(fill="both", expand=True, padx=20, pady=10)
 
+        # Add Gemini Chat tab
+        gemini_frame = ttk.Frame(self.notebook)
+        self.notebook.add(gemini_frame, text="AI Chat")
+
+        # Create chat display
+        self.chat_display = tk.Text(
+            gemini_frame,
+            height=15,
+            wrap="word",
+            font=("Helvetica", 12),
+            state="disabled",
+        )
+        self.chat_display.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Create input frame
+        input_frame = ttk.Frame(gemini_frame)
+        input_frame.pack(fill="x", padx=10, pady=5)
+
+        # Create input field
+        self.chat_input = tk.Text(
+            input_frame, height=3, wrap="word", font=("Helvetica", 12)
+        )
+        self.chat_input.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Create send button
+        send_button = ttk.Button(
+            input_frame, text="Get AI Analysis", command=self.send_to_gemini
+        )
+        send_button.pack(side="right", pady=5)
+
+        # Initialize Gemini chat
+        self.gemini = GeminiChat()
+
     def create_symptom_widget(self, parent, symptom, row):
         var = tk.StringVar(value="no")
         self.symptom_vars[symptom] = var
@@ -173,24 +241,26 @@ class DiagnosisGUI:
         )
         engine.reset()
         engine.run()
-        
+
         # Get the result from the engine
-        if hasattr(engine, 'result'):
+        if hasattr(engine, "result"):
             result = engine.result
             self.result_text.delete(1.0, tk.END)  # Clear previous results
-            
-            if result['matched']:
+
+            if result["matched"]:
                 message = f"Your symptoms match {result['disease']}\n\n"
             else:
                 message = f"The most probable disease that you have is {result['disease']}\n\n"
-                
+
             message += f"A short description of the disease is given below:\n{result['details']}\n\n"
             message += f"The common medications and procedures suggested by other real doctors are:\n{result['treatments']}\n"
-            
+
             self.result_text.insert(tk.END, message)
         else:
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, "No diagnosis could be made with the given symptoms.")
+            self.result_text.insert(
+                tk.END, "No diagnosis could be made with the given symptoms."
+            )
 
     def show_progress(self):
         progress_window = tk.Toplevel(self.master)
@@ -221,6 +291,8 @@ class DiagnosisGUI:
             self.style.configure(
                 "TNotebook.Tab", background="#444444", foreground="white"
             )
+            self.chat_display.configure(bg="#f0f0f0", fg="black")
+            self.chat_input.configure(bg="#f0f0f0", fg="black")
         else:
             self.style.theme_use("clam")
             self.master.configure(bg="#f0f0f0")
@@ -230,6 +302,33 @@ class DiagnosisGUI:
             self.style.configure(
                 "TNotebook.Tab", background="#e0e0e0", foreground="black"
             )
+            self.chat_display.configure(bg="#2c2c2c", fg="white")
+            self.chat_input.configure(bg="#2c2c2c", fg="white")
+
+    def send_to_gemini(self):
+        chat_text = self.chat_input.get("1.0", tk.END).strip()
+
+        if not chat_text:
+            chat_text = "No symptoms described"
+
+        try:
+            response = self.gemini.get_response(chat_text)
+
+            self.chat_display.config(state="normal")
+            self.chat_display.delete(1.0, tk.END)
+            self.chat_display.insert(tk.END, f"Your description:\n{chat_text}\n\n")
+            self.chat_display.insert(tk.END, f"AI Analysis:\n{response}\n")
+            self.chat_display.config(state="disabled")
+
+            # Clear input after sending
+            self.chat_input.delete("1.0", tk.END)
+        except Exception as e:
+            self.chat_display.config(state="normal")
+            self.chat_display.delete(1.0, tk.END)
+            self.chat_display.insert(
+                tk.END, f"Error: Could not get AI analysis. {str(e)}"
+            )
+            self.chat_display.config(state="disabled")
 
 
 # driver function
