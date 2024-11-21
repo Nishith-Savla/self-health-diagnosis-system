@@ -1,7 +1,10 @@
 from experta import *
 
+
 class Greetings(KnowledgeEngine):
-    def __init__(self, symptom_map, if_not_matched, get_treatments, get_details, symptoms):
+    def __init__(
+        self, symptom_map, if_not_matched, get_treatments, get_details, symptoms
+    ):
         self.symptom_map = symptom_map
         self.if_not_matched = if_not_matched
         self.get_details = get_details
@@ -15,7 +18,7 @@ class Greetings(KnowledgeEngine):
         for symptom, value in self.symptoms.items():
             yield Fact(**{symptom: value})
 
-    #different rules checking for each disease match
+    # different rules checking for each disease match
     @Rule(
         Fact(action="find_disease"),
         Fact(headache="no"),
@@ -262,7 +265,7 @@ class Greetings(KnowledgeEngine):
     )
     def disease_12(self):
         self.declare(Fact(disease="Hypothermia"))
-    
+
     @Rule(
         Fact(action="find_disease"),
         Fact(headache="high"),
@@ -282,20 +285,19 @@ class Greetings(KnowledgeEngine):
     def disease_13(self):
         self.declare(Fact(disease="Coronavirus"))
 
-    #when the user's input doesn't match any disease in the knowledge base
+    # when the user's input doesn't match any disease in the knowledge base
     @Rule(Fact(action="find_disease"), Fact(disease=MATCH.disease), salience=-998)
     def disease(self, disease):
         id_disease = disease
         disease_details = self.get_details(id_disease)
         treatments = self.get_treatments(id_disease)
-        print("")
-        print("Your symptoms match %s\n" % (id_disease))
-        print("A short description of the disease is given below :\n")
-        print(disease_details + "\n")
-        print(
-            "The common medications and procedures suggested by other real doctors are: \n"
-        )
-        print(treatments + "\n")
+        result = {
+            "disease": id_disease,
+            "details": disease_details,
+            "treatments": treatments,
+            "matched": True,
+        }
+        self.result = result  # Store the result in the class
 
     @Rule(
         Fact(action="find_disease"),
@@ -313,11 +315,39 @@ class Greetings(KnowledgeEngine):
         Fact(nausea=MATCH.nausea),
         Fact(blurred_vision=MATCH.blurred_vision),
         NOT(Fact(disease=MATCH.disease)),
-        salience=-999
+        salience=-999,
     )
-    def not_matched(self, headache, back_pain, chest_pain, cough, fainting, sore_throat, fatigue, low_body_temp, restlessness, fever, sunken_eyes, nausea, blurred_vision):
-        print("\nThe bot did not find any diseases that match your exact symptoms.")
-        lis = [headache, back_pain, chest_pain, cough, fainting, sore_throat, fatigue, low_body_temp, restlessness, fever, sunken_eyes, nausea, blurred_vision]
+    def not_matched(
+        self,
+        headache,
+        back_pain,
+        chest_pain,
+        cough,
+        fainting,
+        sore_throat,
+        fatigue,
+        low_body_temp,
+        restlessness,
+        fever,
+        sunken_eyes,
+        nausea,
+        blurred_vision,
+    ):
+        lis = [
+            headache,
+            back_pain,
+            chest_pain,
+            cough,
+            fainting,
+            sore_throat,
+            fatigue,
+            low_body_temp,
+            restlessness,
+            fever,
+            sunken_eyes,
+            nausea,
+            blurred_vision,
+        ]
         max_count = 0
         max_disease = ""
         for key, val in self.symptom_map.items():
@@ -326,4 +356,12 @@ class Greetings(KnowledgeEngine):
                 max_count = count
                 max_disease = val
         if max_disease:
-            self.if_not_matched(max_disease)
+            disease_details = self.get_details(max_disease)
+            treatments = self.get_treatments(max_disease)
+            result = {
+                "disease": max_disease,
+                "details": disease_details,
+                "treatments": treatments,
+                "matched": False,
+            }
+            self.result = result  # Store the result in the class
